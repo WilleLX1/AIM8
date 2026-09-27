@@ -48,10 +48,16 @@ public static class BallClassifier
 
     public static IReadOnlyList<ClassifiedBall> Classify(
         Frame frame, IReadOnlyList<DetectedBall> balls, double radius, AimSettings settings,
-        IReadOnlyList<Occluder>? occluders = null)
+        IReadOnlyList<Occluder>? occluders = null, TableGeometry? table = null)
     {
-        var looks = balls.Select(b => Measure(frame, b.Position, radius, occluders)).ToList();
-        var n = balls.Count;
+        // Pocket mouths are round, dark blobs at almost exactly the size of a
+        // ball. Reject an unmarked black disc there before assigning the 8.
+        var candidates = balls
+            .Select(ball => (Ball: ball, Look: Measure(frame, ball.Position, radius, occluders)))
+            .Where(candidate => !IsPocketMouth(candidate.Ball.Position, candidate.Look, radius, table))
+            .ToList();
+        var looks = candidates.Select(candidate => candidate.Look).ToList();
+        var n = candidates.Count;
         var kinds = new BallKind[n];
 
         var cue = -1;
@@ -75,7 +81,7 @@ public static class BallClassifier
         {
             if (i == cue) continue;
             var look = looks[i];
-            if (look.Black >= 0.35 && look.Colored < 0.35 && look.Black > best)
+            if (look.Black >= 0.35 && look.White >= 0.03 && look.Colored < 0.35 && look.Black > best)
             {
                 best = look.Black;
                 eight = i;
@@ -128,11 +134,16 @@ public static class BallClassifier
                 _ => -1,
             };
 
-            result.Add(new ClassifiedBall(balls[i].Position, kinds[i], number, looks[i], balls[i].Fit));
+            result.Add(new ClassifiedBall(candidates[i].Ball.Position, kinds[i], number, looks[i], candidates[i].Ball.Fit));
         }
 
         return result;
     }
+
+    private static bool IsPocketMouth(Vec2 position, BallAppearance look, double radius, TableGeometry? table) =>
+        table is not null && radius > 0 &&
+        look.Black >= 0.55 && look.White < 0.03 && look.Colored < 0.12 &&
+        table.Pockets.Any(pocket => Vec2.Distance(position, pocket.Position) < 2.2 * radius);
 
     private static void Rebalance(
         List<int> others, BallKind[] kinds, List<BallAppearance> looks, BallKind from, BallKind to, bool mostStripeLikeFirst)

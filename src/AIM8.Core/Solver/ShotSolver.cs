@@ -112,9 +112,9 @@ public sealed class ShotSolver
 
         if (cue is null)
         {
-            var placed = BallInHand(ctx, targets).OrderByDescending(s => s.Probability).Take(1 + settings.Alternatives).ToList();
-            return new ShotPlan(placed, targets, onEight,
-                placed.Count > 0 ? "Cue ball not on the table - place it here if you have ball in hand" : "Cue ball not found");
+            // A missing detection is not proof of ball in hand. Inventing a cue
+            // placement here makes the overlay look like a pot-the-white plan.
+            return new ShotPlan([], targets, onEight, "Cue ball not found - wait for a clear view");
         }
 
         var shots = new List<Shot>();
@@ -153,6 +153,7 @@ public sealed class ShotSolver
 
         if (ranked.Count == 0 || ranked[0].Probability < 0.02)
         {
+            ranked.Clear();
             if (Safety(ctx, targets) is { } safety) ranked.Insert(0, safety);
         }
 
@@ -170,7 +171,7 @@ public sealed class ShotSolver
         };
 
         var list = group.ToList();
-        onEight = list.Count == 0;
+        onEight = team != Team.Open && list.Count == 0;
         if (onEight) list = balls.Where(b => b.Kind == BallKind.Eight).ToList();
         return list;
     }

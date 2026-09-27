@@ -25,9 +25,12 @@ and keep it unlocked.
 - **Live mirror** needs iOS 27 or later (Apple's gate; see iBridge's SETUP.md).
   AIM8 starts it by itself when the phone appears. Mouse on the phone image is
   touch on the phone, so you can aim from the PC as well.
-- **Older iOS**: when the phone refuses to mirror, AIM8 falls back to
-  repeated screenshots (`developer dvt screenshot`). That is slower, but
-  pool is turn-based. You can also switch to it yourself with **Screenshots**.
+- **Older iOS**: if the phone refuses to mirror, the live screen view reports
+  the problem rather than showing a delayed screenshot as if it were live.
+  **Screenshots** remains an explicit, slower mode for analysis.
+- If the stream says the iPhone camera or microphone is in use, close the app
+  using that sensor on the phone and press **Live** or **Stream** to try live
+  mirroring again.
 - **Run as administrator** for a shared kernel tunnel. Without it every
   developer command builds its own userspace tunnel, which is slower and seems
   to make the phone stream at a lower resolution (384 × 832 on an iPhone 11
@@ -51,6 +54,17 @@ and keep it unlocked.
 3. The right panel shows the same plan in words, with a rough chance and the
    cut angle.
 
+The live screen view opens automatically once the first stream frame arrives.
+The real-time iPhone image fills the window and AIM8 draws only the best shot
+directly over it. Use **Settings** in the image (or Esc) to see the detailed
+controls and console; use **Live screen view** there to return to the stream.
+The ↶ and ↷ buttons beside **Live screen view**, or beside **Settings** in
+fullscreen, rotate the mirrored phone and its touch/analysis coordinates
+together.
+Saved screenshots and demo tables stay in the settings view and never silently
+replace the live image. Repeated screenshots are slower and require touch
+input on the iPhone.
+
 Every ball gets a ring: solid ring for whole balls, dashed for half balls,
 white for the cue ball, and a white rim for the 8. Your targets get a second
 ring in your group's colour.
@@ -59,8 +73,9 @@ ring in your group's colour.
 
 Direct pots, banks (object ball off one cushion), kicks (cue ball off one
 cushion), two-ball combinations of your own balls, the break (a full rack,
-even when it shows as one blob at phone resolution), ball-in-hand placement
-when the cue ball is missing, and a safety when nothing pots. Shots are ranked
+even when it shows as one blob at phone resolution), and a safety when nothing
+pots. A missing cue-ball detection does not assume ball in hand or draw a shot.
+Shots are ranked
 by how much aiming error they tolerate: the pocket's width seen from the
 object ball, narrowed by the cut angle and by the cue-ball distance.
 
@@ -92,7 +107,7 @@ canvas into a WebView2 shared buffer and tells the host a frame is ready. The
 host analyses it on a worker thread and posts the result back as JSON, which
 the same script draws on a canvas laid over the phone image with pointer
 events turned off. One frame is in flight at a time, about 8 per second.
-Screenshots, the demo and the screenshot fallback use `offline.html`, which
+Manually selected screenshots and the demo use `offline.html`, which
 puts the image on a canvas of the same id, so the overlay does not care where
 a frame came from. iBridge's WebCodecs size fix for Edge is injected too.
 

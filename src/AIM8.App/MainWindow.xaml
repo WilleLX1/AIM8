@@ -13,17 +13,17 @@
         Background="{StaticResource Background}"
         FontFamily="{StaticResource UiFont}">
 
-    <Grid Margin="12">
+    <Grid x:Name="WindowLayout" Margin="12">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
+            <RowDefinition x:Name="HeaderRow" Height="Auto" />
             <RowDefinition Height="*" MinHeight="300" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="140" MinHeight="60" />
-            <RowDefinition Height="Auto" />
+            <RowDefinition x:Name="ConsoleSplitterRow" Height="Auto" />
+            <RowDefinition x:Name="ConsoleRow" Height="140" MinHeight="0" />
+            <RowDefinition x:Name="StatusRow" Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- Header -->
-        <Grid Grid.Row="0" Margin="0,0,0,10">
+        <Grid x:Name="HeaderBar" Grid.Row="0" Margin="0,0,0,10">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock Text="AIM8" Foreground="{StaticResource Text}" FontSize="20" FontWeight="Bold" />
                 <TextBlock Text="8-ball aim assist for the mirrored iPhone" Style="{StaticResource Label}"
@@ -43,25 +43,33 @@
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" MinWidth="360" />
-                <ColumnDefinition Width="12" />
-                <ColumnDefinition Width="380" MinWidth="320" />
+                <ColumnDefinition x:Name="SideSplitterColumn" Width="12" />
+                <ColumnDefinition x:Name="SideColumn" Width="380" MinWidth="0" />
             </Grid.ColumnDefinitions>
 
             <!-- The phone, with the assist drawn over it -->
-            <Border Grid.Column="0" Style="{StaticResource Panel}" Margin="0">
+            <Border x:Name="PhonePanel" Grid.Column="0" Style="{StaticResource Panel}" Margin="0">
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
+                        <RowDefinition x:Name="PhoneToolbarRow" Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <Grid Grid.Row="0" Margin="0,0,0,8">
+                    <Grid x:Name="PhoneToolbar" Grid.Row="0" Margin="0,0,0,8">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="{Binding SourceTitle}" Style="{StaticResource PanelTitle}" Margin="0" />
                             <TextBlock Text="{Binding ScreenStatus}" Style="{StaticResource Label}" Margin="10,0,0,0"
                                        Visibility="{Binding IsLive, Converter={StaticResource BoolVisibility}}" />
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button x:Name="OverlayModeButton" Content="Live screen view" Style="{StaticResource ToolButton}"
+                                    Padding="8,3" Click="ToggleOverlayMode" ToolTip="Show the real-time phone stream with AIM8 guidance drawn directly on it" />
+                            <Button Content="↶" Style="{StaticResource ToolButton}" Padding="9,3"
+                                    Click="RotatePhoneLeft" ToolTip="Rotate the live phone view left"
+                                    Visibility="{Binding IsLive, Converter={StaticResource BoolVisibility}}" />
+                            <Button Content="↷" Style="{StaticResource ToolButton}" Padding="9,3"
+                                    Click="RotatePhoneRight" ToolTip="Rotate the live phone view right"
+                                    Visibility="{Binding IsLive, Converter={StaticResource BoolVisibility}}" />
                             <Button Content="&#x25C9;  Live" Style="{StaticResource ToolButton}" Padding="8,3"
                                     Command="{Binding BackToLiveCommand}"
                                     Visibility="{Binding IsLive, Converter={StaticResource BoolVisibility}, ConverterParameter=invert}"
@@ -116,9 +124,9 @@
                 </Grid>
             </Border>
 
-            <GridSplitter Grid.Column="1" Width="12" HorizontalAlignment="Stretch" Background="Transparent" />
+            <GridSplitter x:Name="SideSplitter" Grid.Column="1" Width="12" HorizontalAlignment="Stretch" Background="Transparent" />
 
-            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+            <ScrollViewer x:Name="SettingsPanel" Grid.Column="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                           Padding="0,0,6,0">
                 <StackPanel>
 
@@ -340,10 +348,10 @@
             </ScrollViewer>
         </Grid>
 
-        <GridSplitter Grid.Row="2" Height="10" HorizontalAlignment="Stretch" Background="Transparent" />
+        <GridSplitter x:Name="ConsoleSplitter" Grid.Row="2" Height="10" HorizontalAlignment="Stretch" Background="Transparent" />
 
         <!-- Console -->
-        <Border Grid.Row="3" Style="{StaticResource Panel}" Margin="0">
+        <Border x:Name="ConsolePanel" Grid.Row="3" Style="{StaticResource Panel}" Margin="0">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -393,7 +401,7 @@
         </Border>
 
         <!-- Status bar -->
-        <Grid Grid.Row="4" Margin="2,8,2,0">
+        <Grid x:Name="StatusBar" Grid.Row="4" Margin="2,8,2,0">
             <TextBlock Text="{Binding ToolchainProblem}" Style="{StaticResource Label}"
                        Foreground="{StaticResource Danger}" TextTrimming="CharacterEllipsis"
                        ToolTip="{Binding ToolchainProblem}"

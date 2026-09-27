@@ -133,15 +133,39 @@ public sealed class SolverTests
     }
 
     [Fact]
-    public void SuggestsPlacementWithBallInHand()
+    public void MissingCueBallNeverInventsAPlacementOrShot()
     {
         var target = Make(BallKind.Solid, 150, 75, 3);
         var plan = Solve([target, Make(BallKind.Eight, 450, 225, 8)]);
 
-        var best = plan.Best!;
-        Assert.Equal(ShotKind.BallInHand, best.Kind);
-        Assert.NotNull(best.CuePlacement);
-        Assert.True(Table.CenterBounds(R).Contains(best.CuePlacement!.Value));
+        Assert.Null(plan.Best);
+        Assert.Contains("Cue ball not found", plan.Summary);
+    }
+
+    [Theory]
+    [InlineData(Team.Solids)]
+    [InlineData(Team.Stripes)]
+    public void ClearedChosenGroupTargetsOnlyTheEight(Team team)
+    {
+        var cue = Make(BallKind.Cue, 300, 150, 0);
+        var eight = Make(BallKind.Eight, 450, 225, 8);
+        var opponent = Make(team == Team.Solids ? BallKind.Stripe : BallKind.Solid, 150, 75, 3);
+
+        var plan = Solve([cue, eight, opponent], new AimSettings { Team = team });
+
+        Assert.True(plan.OnEight);
+        Assert.NotEmpty(plan.Shots);
+        Assert.All(plan.Shots, shot => Assert.Equal(eight.Id, shot.Target.Id));
+    }
+
+    [Fact]
+    public void OpenTableDoesNotDeclareTheEightLegal()
+    {
+        var plan = Solve([Make(BallKind.Cue, 300, 150, 0), Make(BallKind.Eight, 450, 225, 8)],
+            new AimSettings { Team = Team.Open });
+
+        Assert.False(plan.OnEight);
+        Assert.Empty(plan.Shots);
     }
 
     [Fact]

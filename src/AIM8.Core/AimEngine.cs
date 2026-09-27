@@ -141,7 +141,12 @@ public sealed class AimEngine
         }
 
         var radius = _radius ?? 0;
-        var classified = BallClassifier.Classify(frame, found.Balls, radius, settings, found.Occluders);
+        var classified = BallClassifier.Classify(frame, found.Balls, radius, settings, found.Occluders, geometry);
+        if (!classified.Any(ball => ball.Kind == BallKind.Cue) &&
+            CueBallFinder.Find(frame, geometry, radius, found.Balls, found.Occluders) is { } rescuedCue)
+        {
+            classified = [.. classified, rescuedCue];
+        }
         var felt = detection.Felt;
         var balls = _tracker.Update(classified, Math.Max(radius, 1), p => IsCovered(frame, felt, p, radius));
 

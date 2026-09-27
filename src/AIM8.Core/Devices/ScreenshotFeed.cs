@@ -3,8 +3,8 @@ using AIM8.Core.Logging;
 namespace AIM8.Core.Devices;
 
 /// <summary>
-/// For phones that will not mirror (Apple gates the live stream on iOS 27 -
-/// see iBridge's notes), takes `developer dvt screenshot` in a loop instead.
+/// When live mirroring is unavailable, takes `developer dvt screenshot` in a
+/// loop instead.
 /// Much slower than the mirror, but pool is turn-based: the table only has to
 /// be read once the balls stop.
 /// </summary>
@@ -37,7 +37,7 @@ public sealed class ScreenshotFeed : IAsyncDisposable
         var cts = new CancellationTokenSource();
         _cts = cts;
         _loop = Task.Run(() => LoopAsync(directory, interval, cts.Token), CancellationToken.None);
-        _log.Info(Source, "taking screenshots in a loop (the phone does not mirror)");
+        _log.Info(Source, "showing repeated screenshots until live mirroring is available");
     }
 
     public void Stop()

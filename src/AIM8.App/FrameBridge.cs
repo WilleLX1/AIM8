@@ -28,6 +28,8 @@ internal sealed class FrameBridge : IDisposable
     private (int W, int H) _lastSize;
     private bool _analyzing;
     private bool _resetPending;
+    private bool _overlayMode;
+    private bool _overlayDataVisible = true;
     private string _config = "{}";
 
     public FrameBridge(CoreWebView2Environment environment, CoreWebView2 web, Dispatcher dispatcher)
@@ -52,6 +54,10 @@ internal sealed class FrameBridge : IDisposable
 
     public event Action<string>? Log;
 
+    public event Action? ExitOverlayRequested;
+
+    public event Action? ToggleOverlayDataRequested;
+
     public void Configure(int intervalMs, int maxSide, bool labels, bool enabled)
     {
         _config = JsonSerializer.Serialize(new { type = "config", interval = intervalMs, maxSide, labels, enabled });
@@ -59,6 +65,24 @@ internal sealed class FrameBridge : IDisposable
     }
 
     public void SetCalibrating(bool on) => Post(JsonSerializer.Serialize(new { type = "calibrate", on }));
+
+    public void RotatePhone(string direction)
+    {
+        if (direction is not ("left" or "right")) return;
+        Post(JsonSerializer.Serialize(new { type = "rotate", direction }));
+    }
+
+    public void SetOverlayMode(bool on)
+    {
+        _overlayMode = on;
+        Post(JsonSerializer.Serialize(new { type = "overlayMode", on }));
+    }
+
+    public void SetOverlayDataVisible(bool visible)
+    {
+        _overlayDataVisible = visible;
+        Post(JsonSerializer.Serialize(new { type = "overlayData", visible }));
+    }
 
     /// <summary>Swaps the image on the offline page (the screenshot feed).</summary>
     public void ShowImage(string relativeUrl, string label) =>
@@ -97,7 +121,17 @@ internal sealed class FrameBridge : IDisposable
                     // A new page: its buffer views and our tracking are both stale.
                     _resetPending = true;
                     Post(_config);
+                    Post(JsonSerializer.Serialize(new { type = "overlayMode", on = _overlayMode }));
+                    Post(JsonSerializer.Serialize(new { type = "overlayData", visible = _overlayDataVisible }));
                     ShareBuffer(Math.Max(InitialBufferBytes, _buffer?.Size ?? 0));
+                    break;
+
+                case "exitOverlay":
+                    ExitOverlayRequested?.Invoke();
+                    break;
+
+                case "toggleOverlayData":
+                    ToggleOverlayDataRequested?.Invoke();
                     break;
 
                 case "needBuffer":

@@ -207,6 +207,10 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         if (ScreenUrl is { } url) NavigationRequested?.Invoke(url);
         else NavigationRequested?.Invoke("about:blank");
         UpdateScreenMessage();
+        if (Device.Connected && _screen.State is not (ScreenState.Running or ScreenState.Starting))
+        {
+            _ = StartScreenAsync();
+        }
     }
 
     [RelayCommand]
@@ -334,7 +338,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     private void OnFeedCaptured(string path) => OnUi(() =>
     {
         if (!FeedRunning) return;
-        _bridge?.ShowImage($"feed/{Path.GetFileName(path)}", $"screenshot {DateTime.Now:HH:mm:ss}");
+        _bridge?.ShowImage($"feed/{Path.GetFileName(path)}", $"Screenshot {DateTime.Now:HH:mm:ss} · interact on iPhone");
     });
     // ---- Calibration -------------------------------------------------------
 
@@ -656,12 +660,6 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             }
         }
 
-        if (_screen.State == ScreenState.Unsupported && IsLive && Device.Connected && !FeedRunning)
-        {
-            Log.Info(Source, "this phone will not mirror; falling back to screenshots");
-            StartFeed();
-        }
-
         UpdateScreenMessage();
         UpdateTunnelMode();
     });
@@ -681,7 +679,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
                 ScreenState.Running => "",
                 ScreenState.Starting => "Starting the screen stream…",
                 ScreenState.Unsupported => $"This device will not mirror - {_screen.UnsupportedReason?.TrimEnd('.')}.",
-                ScreenState.Failed => "Screen stream unavailable - check Developer Mode and the DDI mount",
+                ScreenState.Failed => _screen.LastError ?? "Screen stream unavailable - check Developer Mode and the DDI mount",
                 _ => "Screen stream stopped",
             };
     }

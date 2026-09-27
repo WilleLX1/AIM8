@@ -168,6 +168,15 @@ public sealed class ScreenService : IAsyncDisposable
                 return;
             }
 
+            if (StartupProblem is { } startupError)
+            {
+                handle.Dispose();
+                _process = null;
+                SetState(ScreenState.Failed, startupError);
+                _log.Warn(Source, $"live screen unavailable: {startupError}");
+                return;
+            }
+
             SetState(ScreenState.Running, null);
             _log.Success(Source, $"screen stream live at {ViewerUrl}");
         }
@@ -210,6 +219,11 @@ public sealed class ScreenService : IAsyncDisposable
         {
             StartupProblem =
                 $"port {Port} is already in use - another viewer, or a serve-web left behind by a previous run";
+        }
+
+        if (StartupProblem is null && line.Contains("camera or microphone is in use", StringComparison.OrdinalIgnoreCase))
+        {
+            StartupProblem = "An app on the iPhone is using its camera or microphone. Close it, then press Stream.";
         }
 
         _log.Debug(Source, line);

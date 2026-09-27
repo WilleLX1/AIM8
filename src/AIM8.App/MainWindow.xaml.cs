@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Reflection;
 using System.Windows;
+using System.Windows.Controls;
 using AIM8.App.ViewModels;
 using Microsoft.Web.WebView2.Core;
 
@@ -13,6 +14,11 @@ public partial class MainWindow : Window
     private FrameBridge? _bridge;
     private bool _webViewReady;
     private string? _pendingUrl;
+    private bool _overlayMode;
+    private bool _autoOverlayPending = true;
+    private GridLength _savedSideWidth;
+    private GridLength _savedConsoleHeight;
+    private WindowState _savedWindowState;
 
     /// <summary>
     /// From iBridge: WebCodecs lets a VideoDecoderConfig omit codedWidth and
@@ -110,6 +116,7 @@ public partial class MainWindow : Window
 
         _vm.NavigationRequested += Navigate;
         _vm.Console.LinesAdded += OnConsoleLinesAdded;
+        _vm.PropertyChanged += OnViewModelPropertyChanged;
 
         Loaded += OnLoaded;
         Closing += OnClosing;
@@ -153,6 +160,8 @@ public partial class MainWindow : Window
             await web.AddScriptToExecuteOnDocumentCreatedAsync(ReadResource("AIM8.overlay.js"));
 
             _bridge = new FrameBridge(environment, web, Dispatcher);
+            _bridge.ExitOverlayRequested += ExitOverlayMode;
+            _bridge.Analyzed += OnFrameAnalyzed;
             _vm.AttachBridge(_bridge);
 
             _webViewReady = true;
@@ -191,9 +200,99 @@ public partial class MainWindow : Window
         if (last is not null) ConsoleList.ScrollIntoView(last);
     }
 
+    private void ToggleOverlayMode(object sender, RoutedEventArgs e)
+    {
+        if (_overlayMode) ExitOverlayMode();
+        else if (!_vm.IsLive || _vm.ScreenStatus != "running")
+        {
+            _autoOverlayPending = true;
+            _vm.BackToLiveCommand.Execute(null);
+        }
+        else EnterOverlayMode();
+    }
+
+    private void RotatePhoneLeft(object sender, RoutedEventArgs e) => _bridge?.RotatePhone("left");
+
+    private void RotatePhoneRight(object sender, RoutedEventArgs e) => _bridge?.RotatePhone("right");
+
+    private void OnFrameAnalyzed(AIM8.Core.AnalysisResult result)
+    {
+        if (!_autoOverlayPending || _overlayMode || !_vm.IsLive || _vm.ScreenStatus != "running") return;
+        EnterOverlayMode();
+        if (_overlayMode) _autoOverlayPending = false;
+    }
+
+    private void EnterOverlayMode()
+    {
+        if (_overlayMode || !_webViewReady || !_vm.IsLive || _vm.ScreenStatus != "running" ||
+            !string.IsNullOrWhiteSpace(_vm.ScreenMessage)) return;
+
+        _savedSideWidth = SideColumn.Width;
+        _savedConsoleHeight = ConsoleRow.Height;
+        _savedWindowState = WindowState;
+        _overlayMode = true;
+        _autoOverlayPending = false;
+
+        HeaderBar.Visibility = Visibility.Collapsed;
+        PhoneToolbar.Visibility = Visibility.Collapsed;
+        SettingsPanel.Visibility = Visibility.Collapsed;
+        SideSplitter.Visibility = Visibility.Collapsed;
+        ConsoleSplitter.Visibility = Visibility.Collapsed;
+        ConsolePanel.Visibility = Visibility.Collapsed;
+        StatusBar.Visibility = Visibility.Collapsed;
+
+        SideColumn.Width = new GridLength(0);
+        SideSplitterColumn.Width = new GridLength(0);
+        ConsoleRow.Height = new GridLength(0);
+        WindowLayout.Margin = new Thickness(0);
+        PhonePanel.Padding = new Thickness(0);
+        PhonePanel.BorderThickness = new Thickness(0);
+        WindowState = WindowState.Maximized;
+        _bridge?.SetOverlayMode(true);
+    }
+
+    private void ExitOverlayMode()
+    {
+        if (!_overlayMode) return;
+        _overlayMode = false;
+
+        SideColumn.Width = _savedSideWidth;
+        SideSplitterColumn.Width = new GridLength(12);
+        ConsoleRow.Height = _savedConsoleHeight;
+        WindowLayout.Margin = new Thickness(12);
+        PhonePanel.Padding = new Thickness(12);
+        PhonePanel.BorderThickness = new Thickness(1);
+        WindowState = _savedWindowState;
+
+        HeaderBar.Visibility = Visibility.Visible;
+        PhoneToolbar.Visibility = Visibility.Visible;
+        SettingsPanel.Visibility = Visibility.Visible;
+        SideSplitter.Visibility = Visibility.Visible;
+        ConsoleSplitter.Visibility = Visibility.Visible;
+        ConsolePanel.Visibility = Visibility.Visible;
+        StatusBar.Visibility = Visibility.Visible;
+        _bridge?.SetOverlayMode(false);
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainViewModel.ScreenMessage) &&
+            !string.IsNullOrWhiteSpace(_vm.ScreenMessage))
+        {
+            ExitOverlayMode();
+            _autoOverlayPending = true;
+        }
+    }
+
     private async void OnClosing(object? sender, CancelEventArgs e)
     {
         _vm.Console.LinesAdded -= OnConsoleLinesAdded;
+        _vm.PropertyChanged -= OnViewModelPropertyChanged;
+        if (_bridge is not null)
+        {
+            _bridge.ExitOverlayRequested -= ExitOverlayMode;
+            _bridge.Analyzed -= OnFrameAnalyzed;
+        }
         _bridge?.Dispose();
         await _vm.DisposeAsync();
     }

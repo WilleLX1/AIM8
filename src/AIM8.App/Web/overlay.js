@@ -28,6 +28,7 @@
         enabled: true,
         labels: true,
         result: null,
+        overlayMode: false,
         calibrating: false,
         drag: null,
         dpr: 1,
@@ -71,6 +72,16 @@
                 break;
             case 'calibrate':
                 setCalibrating(!!m.on);
+                break;
+            case 'overlayMode':
+                S.overlayMode = !!m.on;
+                document.body.classList.toggle('aim8-screen-first', S.overlayMode);
+                exitButton.style.display = S.overlayMode ? '' : 'none';
+                rotateLeftButton.style.display = S.overlayMode ? '' : 'none';
+                rotateRightButton.style.display = S.overlayMode ? '' : 'none';
+                break;
+            case 'rotate':
+                rotateViewer(m.direction);
                 break;
         }
     });
@@ -124,7 +135,81 @@
     const overlay = document.createElement('canvas');
     overlay.id = 'aim8-overlay';
     overlay.style.cssText =
-        'position:fixed;left:0;top:0;width:0;height:0;pointer-events:none;z-index:2147483600;touch-action:none;';
+        // The live viewer styles *all* canvases with background:#000. Without
+        // this override our transparent drawing layer hides the phone video.
+        'position:fixed;left:0;top:0;width:0;height:0;background:transparent;' +
+        'pointer-events:none;z-index:2147483600;touch-action:none;';
+
+    const screenStyle = document.createElement('style');
+    screenStyle.textContent = `
+        body.aim8-screen-first { margin:0; overflow:hidden; background:#090c12; }
+        body.aim8-screen-first #topbar,
+        body.aim8-screen-first #left-tray,
+        body.aim8-screen-first #right-tray,
+        body.aim8-screen-first #bottom-row,
+        body.aim8-screen-first #note,
+        body.aim8-screen-first #device-frame .hw { display:none !important; }
+        body.aim8-screen-first #workspace { position:fixed; inset:0; display:flex; margin:0; gap:0; }
+        body.aim8-screen-first #stage-wrap { flex:1; width:100%; height:100%; padding:0;
+            margin:0; max-height:none; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+        body.aim8-screen-first #stage { max-width:none; }
+        body.aim8-screen-first #stage::before { display:none; }
+        body.aim8-screen-first #device-frame { padding:0 !important; border-radius:0 !important;
+            background:transparent !important; box-shadow:none !important; }
+        body.aim8-screen-first #c { border-radius:0 !important; }
+    `;
+
+    function fitScreen(source) {
+        if (!S.overlayMode || !source.width || !source.height) return;
+        const scale = Math.min(innerWidth / source.width, innerHeight / source.height);
+        const width = Math.round(source.width * scale) + 'px';
+        const height = Math.round(source.height * scale) + 'px';
+        if (source.style.width !== width) source.style.width = width;
+        if (source.style.height !== height) source.style.height = height;
+    }
+
+    // WebView2 sits in its own native window, so this control must live in the
+    // same page as the phone image rather than in the WPF layer above it.
+    const exitButton = document.createElement('button');
+    exitButton.type = 'button';
+    exitButton.textContent = 'Settings';
+    exitButton.setAttribute('aria-label', 'Open AIM8 settings');
+    exitButton.style.cssText =
+        'position:fixed;bottom:12px;right:12px;z-index:2147483601;' +
+        'padding:8px 14px;border:1px solid rgba(255,255,255,.24);border-radius:18px;' +
+        'background:rgba(12,14,18,.64);color:#fff;font:600 12px "Segoe UI",sans-serif;' +
+        'cursor:pointer;backdrop-filter:blur(8px);display:none;';
+    exitButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        host.postMessage({ type: 'exitOverlay' });
+    });
+
+    // Use the live viewer's own controls so it rotates both the device and
+    // the decoded canvas; a CSS transform would misalign touch and analysis.
+    function rotateViewer(direction) {
+        const id = direction === 'left' ? 'rotate-left' : direction === 'right' ? 'rotate-right' : null;
+        if (id) document.getElementById(id)?.click();
+    }
+
+    function rotateButton(label, name, direction, right) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = label;
+        button.setAttribute('aria-label', name);
+        button.style.cssText =
+            `position:fixed;bottom:12px;right:${right}px;z-index:2147483601;` +
+            'padding:5px 10px;border:1px solid rgba(255,255,255,.24);border-radius:18px;' +
+            'background:rgba(12,14,18,.64);color:#fff;font:600 18px "Segoe UI",sans-serif;' +
+            'cursor:pointer;backdrop-filter:blur(8px);display:none;';
+        button.addEventListener('click', (e) => {
+            e.stopPropagation();
+            rotateViewer(direction);
+        });
+        return button;
+    }
+
+    const rotateLeftButton = rotateButton('↶', 'Rotate phone left', 'left', 160);
+    const rotateRightButton = rotateButton('↷', 'Rotate phone right', 'right', 116);
 
     function layout(source) {
         if (!overlay.isConnected && document.body) document.body.appendChild(overlay);
@@ -158,7 +243,7 @@
             const px = S.dpr / sx;
             drawScene(ctx, R, px);
             ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
-            drawHud(ctx, R);
+            if (!S.overlayMode) drawHud(ctx, R);
         }
 
         if (S.calibrating) drawCalibration(ctx);
@@ -168,6 +253,18 @@
         const team = TEAM[R.team] || TEAM.solids;
         const moving = R.status !== 'ready';
         const r = R.r || 10;
+
+        // The screen-first view only marks the playable shot. The full table
+        // diagnostics remain available when Settings is open.
+        if (S.overlayMode) {
+            const best = !moving && R.shots && R.shots.length ? R.shots[0] : null;
+            if (!best) return;
+            for (const b of R.balls || []) {
+                if (b.id === best.target || b.kind === 'cue') drawBall(ctx, b, r, px, team, false);
+            }
+            drawShot(ctx, R, best, px, team, true);
+            return;
+        }
 
         if (R.table) {
             const t = R.table;
@@ -223,7 +320,7 @@
             ctx.stroke();
         }
 
-        if (S.labels) {
+        if (S.labels && !S.overlayMode) {
             const text = b.kind === 'cue' ? '' : b.label;
             if (text) {
                 ctx.font = `600 ${11 * px}px "Segoe UI", sans-serif`;
@@ -292,7 +389,7 @@
                 ctx.restore();
             }
 
-            if (s.kind !== 'break' && s.kind !== 'safety') {
+            if (!S.overlayMode && s.kind !== 'break' && s.kind !== 'safety') {
                 const label = Math.round(s.p * 100) + '%';
                 ctx.font = `700 ${12 * px}px "Segoe UI", sans-serif`;
                 ctx.textAlign = 'center';
@@ -329,7 +426,7 @@
         const x = 8;
         const y = 8;
 
-        ctx.fillStyle = 'rgba(12,14,18,0.78)';
+        ctx.fillStyle = S.overlayMode ? 'rgba(12,14,18,0.58)' : 'rgba(12,14,18,0.78)';
         roundRect(ctx, x, y, Math.min(width, overlay.width / S.dpr - 16), 46, 8);
         ctx.fill();
 
@@ -391,9 +488,15 @@
 
     // Capture phase, so Escape does not also go to the phone.
     window.addEventListener('keydown', (e) => {
-        if (!S.calibrating || e.key !== 'Escape') return;
-        setCalibrating(false);
-        host.postMessage({ type: 'calibrated', cancelled: true });
+        if (e.key !== 'Escape') return;
+        if (S.calibrating) {
+            setCalibrating(false);
+            host.postMessage({ type: 'calibrated', cancelled: true });
+        } else if (S.overlayMode) {
+            host.postMessage({ type: 'exitOverlay' });
+        } else {
+            return;
+        }
         e.preventDefault();
         e.stopPropagation();
     }, true);
@@ -491,6 +594,7 @@
         }
 
         overlay.style.display = '';
+        fitScreen(source);
         layout(source);
 
         // A lost answer must not stall capture for good.
@@ -502,6 +606,10 @@
     }
 
     function start() {
+        document.head.appendChild(screenStyle);
+        document.body.appendChild(exitButton);
+        document.body.appendChild(rotateLeftButton);
+        document.body.appendChild(rotateRightButton);
         host.postMessage({ type: 'hello' });
         requestAnimationFrame(tick);
     }
