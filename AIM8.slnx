@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AIM8.App/AIM8.App.csproj" />
+    <Project Path="src/AIM8.Core/AIM8.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AIM8.Core.Tests/AIM8.Core.Tests.csproj" />
+  </Folder>
+</Solution>

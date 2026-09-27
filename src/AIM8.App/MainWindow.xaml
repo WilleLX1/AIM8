@@ -1,0 +1,405 @@
+<Window x:Class="AIM8.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        xmlns:vm="clr-namespace:AIM8.App.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
+        Title="AIM8 - 8-ball aim assist"
+        Height="940" Width="1320"
+        MinHeight="640" MinWidth="980"
+        Background="{StaticResource Background}"
+        FontFamily="{StaticResource UiFont}">
+
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" MinHeight="300" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="140" MinHeight="60" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Grid Grid.Row="0" Margin="0,0,0,10">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="AIM8" Foreground="{StaticResource Text}" FontSize="20" FontWeight="Bold" />
+                <TextBlock Text="8-ball aim assist for the mirrored iPhone" Style="{StaticResource Label}"
+                           VerticalAlignment="Center" Margin="12,3,0,0" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <TextBlock Text="{Binding TunnelMode}" Style="{StaticResource Label}"
+                           VerticalAlignment="Center" Margin="0,0,14,0"
+                           Visibility="{Binding TunnelMode, Converter={StaticResource StringVisibility}}" />
+                <Ellipse Width="9" Height="9" VerticalAlignment="Center" Margin="0,0,7,0"
+                         Fill="{Binding Device.Connected, Converter={StaticResource TriBrush}}" />
+                <TextBlock Text="{Binding Device.Headline}" Style="{StaticResource Value}" VerticalAlignment="Center" />
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="360" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="380" MinWidth="320" />
+            </Grid.ColumnDefinitions>
+
+            <!-- The phone, with the assist drawn over it -->
+            <Border Grid.Column="0" Style="{StaticResource Panel}" Margin="0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0" Margin="0,0,0,8">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding SourceTitle}" Style="{StaticResource PanelTitle}" Margin="0" />
+                            <TextBlock Text="{Binding ScreenStatus}" Style="{StaticResource Label}" Margin="10,0,0,0"
+                                       Visibility="{Binding IsLive, Converter={StaticResource BoolVisibility}}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Content="&#x25C9;  Live" Style="{StaticResource ToolButton}" Padding="8,3"
+                                    Command="{Binding BackToLiveCommand}"
+                                    Visibility="{Binding IsLive, Converter={StaticResource BoolVisibility}, ConverterParameter=invert}"
+                                    ToolTip="Back to the mirrored phone" />
+                            <Button Content="Open screenshot…" Style="{StaticResource ToolButton}" Padding="8,3"
+                                    Command="{Binding OpenScreenshotCommand}"
+                                    ToolTip="Analyse a saved screenshot instead of the live phone" />
+                            <Button Content="Demo table" Style="{StaticResource ToolButton}" Padding="8,3"
+                                    Command="{Binding DemoTableCommand}"
+                                    ToolTip="Render a random table to try the assist without a phone" />
+                            <Button Content="Save frame" Style="{StaticResource ToolButton}" Padding="8,3"
+                                    Command="{Binding SaveFrameCommand}"
+                                    ToolTip="Save exactly what the analysis sees, as PNG" />
+                            <Button Content="Screenshots" Style="{StaticResource ToolButton}" Padding="8,3"
+                                    Command="{Binding ToggleFeedCommand}"
+                                    ToolTip="Read the phone by repeated screenshots instead of the live mirror - for iOS versions that will not mirror" />
+                            <Button Content="Stream" Style="{StaticResource ToolButton}" Padding="8,3" Margin="0"
+                                    Command="{Binding ToggleScreenCommand}" ToolTip="Start or stop the phone mirror" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid Grid.Row="1">
+                        <!-- WebView2 is a child HWND, so WPF cannot draw over it: the
+                             overlay is drawn inside the page instead, and this message
+                             replaces the view when there is nothing to show. -->
+                        <wv2:WebView2 x:Name="Mirror" DefaultBackgroundColor="#14161A"
+                                      Visibility="{Binding ScreenMessage, Converter={StaticResource StringVisibility}, ConverterParameter=invert}" />
+                        <Border Background="#FF14161A"
+                                Visibility="{Binding ScreenMessage, Converter={StaticResource StringVisibility}}">
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="460">
+                                <TextBlock Text="{Binding ScreenMessage}" Style="{StaticResource Value}" TextWrapping="Wrap"
+                                           TextAlignment="Center" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Center" />
+                                <TextBlock Text="{Binding Device.Readiness}" Style="{StaticResource Label}"
+                                           Margin="0,10,0,0" HorizontalAlignment="Center"
+                                           Visibility="{Binding Device.Readiness, Converter={StaticResource StringVisibility}}" />
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,14,0,0"
+                                            Visibility="{Binding Device.NeedsSetup, Converter={StaticResource BoolVisibility}}">
+                                    <Button Content="Enable Developer Mode" Style="{StaticResource ToolButton}"
+                                            Command="{Binding EnableDeveloperModeCommand}" />
+                                    <Button Content="Mount DDI" Style="{StaticResource ToolButton}"
+                                            Command="{Binding MountDeveloperImageCommand}" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,18,0,0">
+                                    <Button Content="Open screenshot…" Style="{StaticResource ToolButton}"
+                                            Command="{Binding OpenScreenshotCommand}" />
+                                    <Button Content="Demo table" Style="{StaticResource PrimaryButton}" Margin="0"
+                                            Command="{Binding DemoTableCommand}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <GridSplitter Grid.Column="1" Width="12" HorizontalAlignment="Stretch" Background="Transparent" />
+
+            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          Padding="0,0,6,0">
+                <StackPanel>
+
+                    <!-- Team -->
+                    <Border Style="{StaticResource Panel}">
+                        <StackPanel>
+                            <TextBlock Text="YOUR BALLS" Style="{StaticResource PanelTitle}" />
+                            <UniformGrid Columns="2">
+                                <RadioButton GroupName="Team" Style="{StaticResource TeamToggle}" Margin="0,0,4,0"
+                                             Tag="{StaticResource SolidsAccent}" IsChecked="{Binding IsSolids}"
+                                             AutomationProperties.Name="Whole balls">
+                                    <StackPanel HorizontalAlignment="Center">
+                                        <Canvas Width="28" Height="28" HorizontalAlignment="Center">
+                                            <Ellipse Width="28" Height="28" Fill="{StaticResource SolidsAccent}" />
+                                            <Ellipse Width="11" Height="11" Canvas.Left="8.5" Canvas.Top="8.5" Fill="White" />
+                                        </Canvas>
+                                        <TextBlock Text="Whole balls" FontWeight="SemiBold" FontSize="13"
+                                                   Foreground="{StaticResource Text}" Margin="0,6,0,0" HorizontalAlignment="Center" />
+                                        <TextBlock Text="solids 1 – 7" Style="{StaticResource Label}" HorizontalAlignment="Center" />
+                                    </StackPanel>
+                                </RadioButton>
+                                <RadioButton GroupName="Team" Style="{StaticResource TeamToggle}" Margin="4,0,0,0"
+                                             Tag="{StaticResource StripesAccent}" IsChecked="{Binding IsStripes}"
+                                             AutomationProperties.Name="Half balls">
+                                    <StackPanel HorizontalAlignment="Center">
+                                        <Grid Width="28" Height="28" HorizontalAlignment="Center">
+                                            <Grid.Clip>
+                                                <EllipseGeometry Center="14,14" RadiusX="14" RadiusY="14" />
+                                            </Grid.Clip>
+                                            <Rectangle Fill="White" />
+                                            <Rectangle Fill="{StaticResource StripesAccent}" Height="14" />
+                                            <Ellipse Width="9" Height="9" Fill="White" />
+                                        </Grid>
+                                        <TextBlock Text="Half balls" FontWeight="SemiBold" FontSize="13"
+                                                   Foreground="{StaticResource Text}" Margin="0,6,0,0" HorizontalAlignment="Center" />
+                                        <TextBlock Text="stripes 9 – 15" Style="{StaticResource Label}" HorizontalAlignment="Center" />
+                                    </StackPanel>
+                                </RadioButton>
+                            </UniformGrid>
+                            <Grid Margin="0,8,0,0">
+                                <RadioButton GroupName="Team" Style="{StaticResource SmallToggle}" HorizontalAlignment="Left"
+                                             Tag="{StaticResource OpenAccent}" IsChecked="{Binding IsOpen}"
+                                             AutomationProperties.Name="Open table"
+                                             ToolTip="Groups not decided yet: any solid or stripe">
+                                    <TextBlock Text="Open table" FontSize="11" Foreground="{StaticResource TextMuted}" />
+                                </RadioButton>
+                                <CheckBox Content="Assist on" Style="{StaticResource Check}" HorizontalAlignment="Right"
+                                          VerticalAlignment="Center" IsChecked="{Binding AnalysisEnabled}" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Best shot -->
+                    <Border Style="{StaticResource Panel}">
+                        <StackPanel>
+                            <Grid>
+                                <TextBlock Text="BEST SHOT" Style="{StaticResource PanelTitle}" />
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Ellipse Width="7" Height="7" Margin="0,0,6,8" VerticalAlignment="Center"
+                                             Fill="{Binding StatusKey, Converter={StaticResource StateBrush}}" />
+                                    <TextBlock Text="{Binding StatusText}" Style="{StaticResource Label}" Margin="0,0,0,8" />
+                                </StackPanel>
+                            </Grid>
+                            <TextBlock Text="{Binding BestShot}" Foreground="{StaticResource Text}" FontSize="16"
+                                       FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding BestShotDetail}" Style="{StaticResource Value}"
+                                       Foreground="{StaticResource TextMuted}" Margin="0,4,0,8" />
+                            <ProgressBar Height="6" Minimum="0" Maximum="100" Value="{Binding BestChance, Mode=OneWay}"
+                                         Background="{StaticResource SurfaceAlt}" Foreground="{StaticResource Success}"
+                                         BorderThickness="0" />
+                            <ItemsControl ItemsSource="{Binding Alternates}" Margin="0,10,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" Style="{StaticResource Label}" Margin="0,2,0,0" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Table -->
+                    <Border Style="{StaticResource Panel}">
+                        <StackPanel>
+                            <TextBlock Text="TABLE" Style="{StaticResource PanelTitle}" />
+                            <TextBlock Text="{Binding CountsText}" Style="{StaticResource Value}" />
+                            <TextBlock Text="{Binding TableText}" Style="{StaticResource Label}" Margin="0,4,0,0" />
+                            <TextBlock Text="{Binding TimingText}" Style="{StaticResource Label}" Margin="0,2,0,0" />
+                            <Grid Margin="0,10,0,0">
+                                <TextBlock Text="{Binding CalibrationText}" Style="{StaticResource Label}" VerticalAlignment="Center" />
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button Content="Calibrate" Style="{StaticResource ToolButton}" Padding="8,3"
+                                            Command="{Binding CalibrateCommand}"
+                                            ToolTip="Drag the playing surface on the phone image by hand" />
+                                    <Button Content="Auto" Style="{StaticResource ToolButton}" Padding="8,3" Margin="0"
+                                            Command="{Binding ClearCalibrationCommand}"
+                                            ToolTip="Go back to finding the table automatically" />
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Assist -->
+                    <Border Style="{StaticResource Panel}">
+                        <StackPanel>
+                            <TextBlock Text="SHOTS" Style="{StaticResource PanelTitle}" />
+                            <WrapPanel>
+                                <CheckBox Content="Banks" Style="{StaticResource Check}" Margin="0,0,14,6"
+                                          IsChecked="{Binding AllowBanks}" ToolTip="Object ball off one cushion" />
+                                <CheckBox Content="Kicks" Style="{StaticResource Check}" Margin="0,0,14,6"
+                                          IsChecked="{Binding AllowKicks}" ToolTip="Cue ball off one cushion" />
+                                <CheckBox Content="Combinations" Style="{StaticResource Check}" Margin="0,0,14,6"
+                                          IsChecked="{Binding AllowCombos}" ToolTip="Your ball into your ball into the pocket" />
+                                <CheckBox Content="Ball numbers" Style="{StaticResource Check}" Margin="0,0,14,6"
+                                          IsChecked="{Binding ShowLabels}" />
+                            </WrapPanel>
+                            <Grid Margin="0,4,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="110" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="44" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Alternatives" Style="{StaticResource Label}" VerticalAlignment="Center" />
+                                <Slider Grid.Column="1" Style="{StaticResource Tune}" Minimum="0" Maximum="4"
+                                        TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding Alternatives}" />
+                                <TextBlock Grid.Column="2" Text="{Binding Alternatives}" Style="{StaticResource Value}"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Detection tuning -->
+                    <Border Style="{StaticResource Panel}">
+                        <StackPanel>
+                            <TextBlock Text="DETECTION" Style="{StaticResource PanelTitle}" />
+
+                            <Grid Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="110" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="44" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Cloth tolerance" Style="{StaticResource Label}" VerticalAlignment="Center"
+                                           ToolTip="Raise if the cloth shows through as balls; lower if balls are missed" />
+                                <Slider Grid.Column="1" Style="{StaticResource Tune}" Minimum="0.5" Maximum="2"
+                                        Value="{Binding FeltTolerance}" />
+                                <TextBlock Grid.Column="2" Text="{Binding FeltText}" Style="{StaticResource Value}"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center" />
+                            </Grid>
+
+                            <Grid Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="110" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="44" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Stripe split" Style="{StaticResource Label}" VerticalAlignment="Center"
+                                           ToolTip="How much white makes a ball a stripe" />
+                                <CheckBox Grid.Column="1" Content="auto" Style="{StaticResource Check}" Margin="0,0,8,0"
+                                          VerticalAlignment="Center" IsChecked="{Binding AutoStripe}" />
+                                <Slider Grid.Column="2" Style="{StaticResource Tune}" Minimum="0.15" Maximum="0.7"
+                                        Value="{Binding StripeThreshold}"
+                                        IsEnabled="{Binding AutoStripe, Converter={StaticResource InverseBool}}" />
+                                <TextBlock Grid.Column="3" Text="{Binding StripeText}" Style="{StaticResource Value}"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center" />
+                            </Grid>
+
+                            <Grid Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="110" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="44" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Ball size" Style="{StaticResource Label}" VerticalAlignment="Center"
+                                           ToolTip="Ball radius as a share of the table's short side" />
+                                <CheckBox Grid.Column="1" Content="auto" Style="{StaticResource Check}" Margin="0,0,8,0"
+                                          VerticalAlignment="Center" IsChecked="{Binding AutoBallSize}" />
+                                <Slider Grid.Column="2" Style="{StaticResource Tune}" Minimum="1.5" Maximum="7"
+                                        Value="{Binding BallSizePercent}"
+                                        IsEnabled="{Binding AutoBallSize, Converter={StaticResource InverseBool}}" />
+                                <TextBlock Grid.Column="3" Text="{Binding BallSizeText}" Style="{StaticResource Value}"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center" />
+                            </Grid>
+
+                            <CheckBox Content="Find the cushion nose inside the cloth" Style="{StaticResource Check}"
+                                      IsChecked="{Binding DetectCushionEdge}"
+                                      ToolTip="For games that draw cushions in the cloth colour" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Device -->
+                    <Border Style="{StaticResource Panel}">
+                        <StackPanel>
+                            <TextBlock Text="DEVICE" Style="{StaticResource PanelTitle}" />
+                            <TextBlock Style="{StaticResource Value}">
+                                <Run Text="{Binding Device.Model, Mode=OneWay}" />
+                                <Run Text="  " />
+                                <Run Text="{Binding Device.IosVersion, Mode=OneWay}" />
+                                <Run Text="  " />
+                                <Run Text="{Binding Device.ConnectionKind, Mode=OneWay}" />
+                            </TextBlock>
+                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                <TextBlock Text="Developer Mode" Style="{StaticResource Label}" />
+                                <TextBlock Text="{Binding Device.DeveloperMode, Converter={StaticResource TriGlyph}}" Margin="5,0,14,0"
+                                           Foreground="{Binding Device.DeveloperMode, Converter={StaticResource TriBrush}}" />
+                                <TextBlock Text="DDI" Style="{StaticResource Label}" />
+                                <TextBlock Text="{Binding Device.DeveloperImage, Converter={StaticResource TriGlyph}}" Margin="5,0,14,0"
+                                           Foreground="{Binding Device.DeveloperImage, Converter={StaticResource TriBrush}}" />
+                                <TextBlock Text="{Binding Device.Display}" Style="{StaticResource Label}" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding Device.Problem}" Style="{StaticResource Label}" TextWrapping="Wrap"
+                                       Margin="0,6,0,0" Foreground="{StaticResource Warning}"
+                                       Visibility="{Binding Device.Problem, Converter={StaticResource StringVisibility}}" />
+                        </StackPanel>
+                    </Border>
+
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <GridSplitter Grid.Row="2" Height="10" HorizontalAlignment="Stretch" Background="Transparent" />
+
+        <!-- Console -->
+        <Border Grid.Row="3" Style="{StaticResource Panel}" Margin="0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Grid>
+                    <TextBlock Text="CONSOLE" Style="{StaticResource PanelTitle}" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,-4,0,0">
+                        <CheckBox Content="Follow" Style="{StaticResource Check}" VerticalAlignment="Center"
+                                  IsChecked="{Binding Console.AutoScroll}" Margin="0,0,10,0" />
+                        <Button Content="Clear" Style="{StaticResource ToolButton}" Padding="8,3" Margin="0"
+                                Command="{Binding ClearConsoleCommand}" />
+                    </StackPanel>
+                </Grid>
+
+                <ListBox Grid.Row="1" x:Name="ConsoleList" ItemsSource="{Binding Console.Lines}"
+                         Background="Transparent" BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         VirtualizingStackPanel.IsVirtualizing="True"
+                         VirtualizingStackPanel.VirtualizationMode="Recycling">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <ContentPresenter />
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding Timestamp}" FontFamily="{StaticResource MonoFont}"
+                                           FontSize="11" Foreground="{StaticResource TextFaint}" Width="62" />
+                                <TextBlock Text="{Binding Source}" FontFamily="{StaticResource MonoFont}"
+                                           FontSize="11" Foreground="{StaticResource TextMuted}" Width="58" />
+                                <TextBlock Text="{Binding Message}" FontFamily="{StaticResource MonoFont}"
+                                           FontSize="11" Foreground="{Binding Brush}" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </Border>
+
+        <!-- Status bar -->
+        <Grid Grid.Row="4" Margin="2,8,2,0">
+            <TextBlock Text="{Binding ToolchainProblem}" Style="{StaticResource Label}"
+                       Foreground="{StaticResource Danger}" TextTrimming="CharacterEllipsis"
+                       ToolTip="{Binding ToolchainProblem}"
+                       Visibility="{Binding ToolchainProblem, Converter={StaticResource StringVisibility}}" />
+            <TextBlock Text="Mouse on the phone image = touch on the phone" Style="{StaticResource Label}"
+                       HorizontalAlignment="Right" />
+        </Grid>
+    </Grid>
+</Window>

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AIM8 screenshot</title>
+<style>
+    html, body { margin: 0; height: 100%; background: #14161a; overflow: hidden; }
+    #wrap { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+    #c { display: block; }
+    #note { position: absolute; left: 0; right: 0; bottom: 10px; text-align: center; color: #8c94a3;
+            font: 12px "Segoe UI", sans-serif; pointer-events: none; }
+</style>
+</head>
+<body>
+<!-- Stands in for the phone mirror: the overlay reads and draws over #c here
+     exactly as it does over the pymobiledevice3 viewer's canvas. -->
+<div id="wrap"><canvas id="c"></canvas></div>
+<div id="note"></div>
+<script>
+    const canvas = document.getElementById('c');
+    const note = document.getElementById('note');
+    const source = new URLSearchParams(location.search).get('img');
+
+    function fit() {
+        if (!canvas.width) return;
+        const scale = Math.min(innerWidth / canvas.width, innerHeight / canvas.height);
+        canvas.style.width = (canvas.width * scale) + 'px';
+        canvas.style.height = (canvas.height * scale) + 'px';
+    }
+
+    function show(src, label) {
+        const image = new Image();
+        image.onload = () => {
+            if (canvas.width !== image.naturalWidth) canvas.width = image.naturalWidth;
+            if (canvas.height !== image.naturalHeight) canvas.height = image.naturalHeight;
+            canvas.getContext('2d').drawImage(image, 0, 0);
+            note.textContent = label || `${image.naturalWidth} × ${image.naturalHeight}`;
+            fit();
+        };
+        image.onerror = () => { note.textContent = 'Could not load ' + src; };
+        image.src = src;
+    }
+
+    if (source) show(source);
+    else note.textContent = 'Waiting for the first screenshot from the phone…';
+
+    // The screenshot feed swaps images in place rather than reloading the page.
+    if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.addEventListener('message', (e) => {
+            const m = e.data;
+            if (m && m.type === 'image') show(m.src, m.label);
+        });
+    }
+
+    addEventListener('resize', fit);
+</script>
+</body>
+</html>
